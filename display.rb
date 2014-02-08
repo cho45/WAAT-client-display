@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 # coding: utf-8
+require 'rubygems'
+require 'bundler'
+Bundler.require
 
 require 'websocket-client-simple'
 require 'json'
@@ -55,6 +58,7 @@ class ACM1602NI < I2CDevice
 
 	def initialize
 		super(0x50)
+		@lines = []
 		initialize_lcd
 	end
 
@@ -71,21 +75,25 @@ class ACM1602NI < I2CDevice
 	end
 
 	def clear
+		@lines.clear
 		i2cset(0, 0b00000001)
 		sleep 2.16e-3
 	end
 
-	def put_line(line, str)
+	def put_line(line, str, force=false)
 		str.force_encoding(Encoding::BINARY)
 		str.gsub!(/#{MAP.keys.join('|')}/, MAP)
 
 		str = "%- 16s" % str
 
-		# set ddram address
-		i2cset(0, 0b10000000 + (0x40 * line))
-		sleep 53e-6
-		i2cset(*str.unpack("C*").map {|i| [0x80, i] }.flatten)
-		sleep 53e-6
+		if force || str != @lines[line]
+			# set ddram address
+			i2cset(0, 0b10000000 + (0x40 * line))
+			sleep 53e-6
+			i2cset(*str.unpack("C*").map {|i| [0x80, i] }.flatten)
+			sleep 53e-6
+		end
+		@lines[line] = str
 	end
 end
 
@@ -99,7 +107,6 @@ class MPL115A2 < I2CDevice
 		@b1  = fixed_point(coefficient[1], 2)
 		@b2  = fixed_point(coefficient[2], 1)
 		@c12 = fixed_point(coefficient[3], 0) / (1<<9)
-		p [@a0, @b1, @b2, @c12]
 	end
 
 	def fixed_point(fixed, int_bits)
@@ -129,13 +136,13 @@ end
 
 avr = I2CDevice.new(0x65)
 lcd = ACM1602NI.new
+result = {}
 
 ws = WebSocket::Client::Simple.connect 'ws://localhost:51234'
 
 ws.on :message do |msg|
-	data = JSON.parse(msg.data)
-	result =  data['result']
-	lcd.put_line(1, "% 3s % 2sW %d" % [result['mode'], result['power'], result['frequency']])
+	data   = JSON.parse(msg.data)
+	result = data['result']
 end
 
 ws.on :open do
@@ -150,7 +157,9 @@ loop do
 	begin
 		ant = avr.i2cget(0x00).unpack("c")[0].to_i
 		lcd.put_line(0, "ANT:%d" % [ant])
-		sleep 1
+		lcd.put_line(1, "% 3s % 2sW %d" % [result['mode'], result['power'], result['frequency']])
+		p result
+		sleep 0.5
 	rescue => e
 		p e
 		sleep 1

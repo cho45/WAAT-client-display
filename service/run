@@ -2,6 +2,7 @@
 exec 2>&1
 
 cd /home/pi/app/display
+bundle install --path vendor/bundle
 
 exec bundle exec ruby display.rb
 
