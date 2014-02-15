@@ -95,46 +95,32 @@ class ACM1602NI < I2CDevice
 		end
 		@lines[line] = str
 	end
-end
 
-class MPL115A2 < I2CDevice
-	def initialize
-		super(0x60)
+	# Usage:
+	# lcd.define_character(0, [
+	# 	0,1,1,1,0,
+	# 	1,0,0,0,1,
+	# 	1,1,0,1,1,
+	# 	1,0,1,0,1,
+	# 	1,1,0,1,1,
+	# 	1,0,0,0,1,
+	# 	1,0,0,0,1,
+	# 	0,1,1,1,0,
+	# ])
+	def define_character(n, array)
+		raise "n < 8" unless n < 8
+		raise "array size must be 40 (5x8)" unless array.size == 40
 
-		coefficient = i2cget(0x04, 8).unpack("n*")
-
-		@a0  = fixed_point(coefficient[0], 12)
-		@b1  = fixed_point(coefficient[1], 2)
-		@b2  = fixed_point(coefficient[2], 1)
-		@c12 = fixed_point(coefficient[3], 0) / (1<<9)
-	end
-
-	def fixed_point(fixed, int_bits)
-		msb = 15
-		deno = (1<<(msb-int_bits)).to_f
-		if (fixed & (1<<15)).zero?
-			fixed / deno
-		else
-			-( ( (~fixed & 0xffff) + 1) / deno )
-		end
-	end
-
-	def calculate_hPa
-		i2cset(0x12, 0x01) # CONVERT
-
-		sleep 0.003
-
-		data = i2cget(0x00, 4).unpack("n*")
-
-		p_adc = (data[0]) >> 6
-		t_adc = (data[1]) >> 6
-
-		p_comp = @a0 + (@b1 + @c12 * t_adc) * p_adc + @b2 * t_adc
-		hPa = p_comp * ( (1150 - 500) / 1023.0) + 500;
+		array = array.each_slice(5).map {|i|
+			i.inject {|r,i| (r << 1) + i }
+		}
+		i2cset(0, 0b01000000 + (8 * n))
+		sleep 53e-6
+		i2cset(*array.map {|i| [0x80, i] }.flatten)
+		sleep 53e-6
 	end
 end
 
-avr = I2CDevice.new(0x65)
 lcd = ACM1602NI.new
 result = {}
 
@@ -142,7 +128,7 @@ ws = WebSocket::Client::Simple.connect 'ws://localhost:51234'
 
 ws.on :message do |msg|
 	data   = JSON.parse(msg.data)
-	result = data['result']
+	result.merge!(data['result'])
 end
 
 ws.on :open do
@@ -155,10 +141,9 @@ end
 
 loop do
 	begin
-		ant = avr.i2cget(0x00).unpack("c")[0].to_i
-		lcd.put_line(0, "ANT:%d" % [ant])
-		lcd.put_line(1, "% 3s % 2sW %d" % [result['mode'], result['power'], result['frequency']])
 		p result
+		lcd.put_line(0, "% 3s % 2sW %d" % [result['mode'], result['power'], result['frequency']])
+		lcd.put_line(1, "ANT:%s" % [ result['antenna.name'] ])
 		sleep 0.5
 	rescue => e
 		p e
