@@ -1,3 +1,10 @@
+GIT
+  remote: git://github.com/cho45/ruby-i2c-devices.git
+  revision: 5d39a701a6588a57749c7f44050c93b254cecff1
+  branch: master
+  specs:
+    i2c-devices (0.0.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -12,5 +19,6 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  i2c-devices!
   json
   websocket-client-simple
