@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 # coding: utf-8
+
+
 require 'rubygems'
 require 'bundler'
 Bundler.require
@@ -9,7 +11,7 @@ require 'json'
 require "i2c"
 require "i2c/device/acm1602ni"
 
-lcd = ACM1602NI.new
+lcd = I2CDevice::ACM1602NI.new
 result = {}
 
 ws = WebSocket::Client::Simple.connect 'ws://localhost:51234'

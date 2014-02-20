@@ -1,9 +1,9 @@
 GIT
   remote: git://github.com/cho45/ruby-i2c-devices.git
-  revision: 5d39a701a6588a57749c7f44050c93b254cecff1
+  revision: 5ac4f63c365f29b50ba249d00fc3cd9e5e5d55f6
   branch: master
   specs:
-    i2c-devices (0.0.1)
+    i2c-devices (0.0.4)
 
 GEM
   remote: https://rubygems.org/
